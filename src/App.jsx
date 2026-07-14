@@ -10,10 +10,10 @@ import {
   sheetsConfigured,
   newId,
 } from './lib/sheetsClient'
-import { CATEGORIES, CATEGORY_LIST, EFFECTS, effectColor } from './lib/constants'
+import { CATEGORIES, CATEGORY_LIST, EFFECTS, effectColor, getCategoryMeta } from './lib/constants'
 
 function SealBadge({ category, size = 'md' }) {
-  const meta = CATEGORIES[category]
+  const meta = getCategoryMeta(category)
   const dims = size === 'lg' ? 'w-14 h-14 text-2xl' : 'w-9 h-9 text-base'
   return (
     <div
@@ -60,7 +60,7 @@ function SyncDot({ online, pending }) {
 }
 
 function EntryCard({ entry, logs, onOpen }) {
-  const meta = CATEGORIES[entry.category]
+  const meta = getCategoryMeta(entry.category)
   const entryLogs = logs.filter((l) => l.entry_id === entry.id)
   const lastLog = entryLogs[0]
   return (
@@ -115,7 +115,7 @@ function EntryForm({ initial, onCancel, onSave }) {
   const [core, setCore] = useState(initial?.core || '')
   const [related, setRelated] = useState(initial?.related || '')
   const [tags, setTags] = useState((initial?.tags || []).join('、'))
-  const meta = CATEGORIES[category]
+  const meta = getCategoryMeta(category)
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -324,7 +324,7 @@ function LogForm({ entryId, onSave, onCancel }) {
 }
 
 function EntryDetail({ entry, logs, onClose, onEdit, onDelete, onSaveLog, onDeleteLog }) {
-  const meta = CATEGORIES[entry.category]
+  const meta = getCategoryMeta(entry.category)
   const entryLogs = logs
     .filter((l) => l.entry_id === entry.id)
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''))

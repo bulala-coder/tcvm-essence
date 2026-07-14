@@ -39,6 +39,24 @@ export const CATEGORIES = {
 
 export const CATEGORY_LIST = Object.keys(CATEGORIES)
 
+const UNKNOWN_CATEGORY_META = {
+  label: '未知分類',
+  seal: '？',
+  accent: '#8A8272',
+  accentSoft: '#E4DAC0',
+  keyInfoLabel: '關鍵資訊',
+  indicationsLabel: '主治／適應症',
+  coreLabel: '本質探討',
+  keyInfoPlaceholder: '',
+  indicationsPlaceholder: '',
+  corePlaceholder: '',
+}
+
+// 手動編輯 Sheet 可能填入不在 CATEGORIES 裡的分類文字，這裡給一個保底值避免整個畫面壞掉
+export function getCategoryMeta(category) {
+  return CATEGORIES[category] || UNKNOWN_CATEGORY_META
+}
+
 export const EFFECTS = [
   { value: '顯效', color: '#4F6B4A' },
   { value: '好轉', color: '#7A8F5C' },
