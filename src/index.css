@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    @apply bg-paper text-ink font-body;
+  }
+  ::selection {
+    @apply bg-seal/20 text-ink;
+  }
+  *:focus-visible {
+    outline: 2px solid #AB3B2A;
+    outline-offset: 2px;
+  }
+}
+
+@layer utilities {
+  .bg-grain-overlay {
+    background-image: radial-gradient(circle at 1px 1px, rgba(23,20,15,0.07) 1px, transparent 0);
+    background-size: 16px 16px;
+  }
+  .brush-rule {
+    height: 3px;
+    background: linear-gradient(90deg, transparent, currentColor 8%, currentColor 92%, transparent);
+    opacity: 0.35;
+  }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+  .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+}
+
+@keyframes seal-stamp {
+  0% { transform: scale(2.2) rotate(-8deg); opacity: 0; }
+  60% { transform: scale(0.92) rotate(-8deg); opacity: 1; }
+  100% { transform: scale(1) rotate(-8deg); opacity: 1; }
+}
+.animate-seal {
+  animation: seal-stamp 0.35s cubic-bezier(.2,.8,.3,1.2);
+}
