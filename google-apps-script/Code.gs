@@ -24,12 +24,10 @@ function getOrCreateSheet_(name, labels) {
   var sheet = ss.getSheetByName(name)
   if (!sheet) {
     sheet = ss.insertSheet(name)
-    sheet.appendRow(labels)
-    sheet.setFrozenRows(1)
-  } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow(labels)
-    sheet.setFrozenRows(1)
   }
+  // 每次都強制把第一列覆蓋成目前的中文標題，不依賴舊資料的狀態判斷
+  sheet.getRange(1, 1, 1, labels.length).setValues([labels])
+  sheet.setFrozenRows(1)
   return sheet
 }
 
