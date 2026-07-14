@@ -1,33 +1,42 @@
 // 本草針義 — Google Apps Script 後端
 // 部署後，將 Web App 網址填入前端 .env 的 VITE_SHEETS_WEBAPP_URL
 
+// 存取密碼：改成你自己的密碼，部署後只有輸入這組密碼的人能讀寫這份 Sheet
+var SHARED_SECRET = 'bulalavet'
+
 var ENTRIES_SHEET = '條目'
 var LOGS_SHEET = '心得記錄'
 
-var ENTRY_HEADERS = ['id', 'category', 'name', 'aliases', 'key_info', 'core', 'indications', 'tags', 'related', 'created_at', 'updated_at']
-var LOG_HEADERS = ['id', 'entry_id', 'date', 'scenario', 'effect', 'note', 'created_at']
+// 內部欄位代號，順序固定，決定 Sheet 中每一欄的位置（勿更動順序，要新增欄位時加在最後）
+var ENTRY_FIELDS = ['id', 'category', 'name', 'aliases', 'key_info', 'core', 'indications', 'tags', 'related', 'created_at', 'updated_at']
+var LOG_FIELDS = ['id', 'entry_id', 'date', 'scenario', 'effect', 'note', 'created_at']
+
+// 寫進 Sheet 第一列的中文標題，順序需與對應的 FIELDS 一一對應
+var ENTRY_LABELS = ['編號', '分類', '名稱', '別名／出處', '關鍵資訊', '本質探討', '主治／適應症', '標籤', '相關條目', '建立時間', '更新時間']
+var LOG_LABELS = ['編號', '條目編號', '日期', '應用情境', '效果', '心得', '建立時間']
 
 function getSS_() {
   return SpreadsheetApp.getActiveSpreadsheet()
 }
 
-function getOrCreateSheet_(name, headers) {
+function getOrCreateSheet_(name, labels) {
   var ss = getSS_()
   var sheet = ss.getSheetByName(name)
   if (!sheet) {
     sheet = ss.insertSheet(name)
-    sheet.appendRow(headers)
+    sheet.appendRow(labels)
     sheet.setFrozenRows(1)
   } else if (sheet.getLastRow() === 0) {
-    sheet.appendRow(headers)
+    sheet.appendRow(labels)
     sheet.setFrozenRows(1)
   }
   return sheet
 }
 
-function rowToObj_(headers, row) {
+// 欄位資料一律用 FIELDS 的順序定位，不依賴 Sheet 上的標題文字（標題只是給人看的中文）
+function rowToObj_(fields, row) {
   var obj = {}
-  headers.forEach(function (h, i) {
+  fields.forEach(function (h, i) {
     if (h === 'tags') {
       obj[h] = row[i] ? String(row[i]).split(',').map(function (s) { return s.trim() }).filter(Boolean) : []
     } else {
@@ -37,53 +46,52 @@ function rowToObj_(headers, row) {
   return obj
 }
 
-function objToRow_(headers, obj) {
-  return headers.map(function (h) {
+function objToRow_(fields, obj) {
+  return fields.map(function (h) {
     if (h === 'tags') return Array.isArray(obj.tags) ? obj.tags.join(',') : (obj.tags || '')
     return obj[h] !== undefined ? obj[h] : ''
   })
 }
 
-function readAll_(sheetName, headers) {
-  var sheet = getOrCreateSheet_(sheetName, headers)
+function readAll_(sheetName, fields, labels) {
+  var sheet = getOrCreateSheet_(sheetName, labels)
   var data = sheet.getDataRange().getValues()
-  var actualHeaders = data[0]
   var rows = data.slice(1)
-  return rows.filter(function (r) { return r[0] }).map(function (r) { return rowToObj_(actualHeaders, r) })
+  return rows.filter(function (r) { return r[0] }).map(function (r) { return rowToObj_(fields, r) })
 }
 
 function doGet(e) {
+  if (e.parameter.pin !== SHARED_SECRET) return jsonOut_({ error: 'unauthorized' })
+
   var action = (e.parameter.action || 'list')
   if (action === 'list') {
-    var entries = readAll_(ENTRIES_SHEET, ENTRY_HEADERS)
-    var logs = readAll_(LOGS_SHEET, LOG_HEADERS)
+    var entries = readAll_(ENTRIES_SHEET, ENTRY_FIELDS, ENTRY_LABELS)
+    var logs = readAll_(LOGS_SHEET, LOG_FIELDS, LOG_LABELS)
     return jsonOut_({ entries: entries, logs: logs })
   }
   return jsonOut_({ error: 'unknown action' })
 }
 
-function upsert_(sheetName, headers, obj) {
-  var sheet = getOrCreateSheet_(sheetName, headers)
+function upsert_(sheetName, fields, labels, obj) {
+  var sheet = getOrCreateSheet_(sheetName, labels)
   var data = sheet.getDataRange().getValues()
-  var actualHeaders = data[0]
-  var idCol = actualHeaders.indexOf('id')
+  var idCol = fields.indexOf('id')
   var targetRow = -1
   for (var i = 1; i < data.length; i++) {
     if (data[i][idCol] === obj.id) { targetRow = i + 1; break }
   }
-  var rowValues = objToRow_(actualHeaders, obj)
+  var rowValues = objToRow_(fields, obj)
   if (targetRow > 0) {
-    sheet.getRange(targetRow, 1, 1, actualHeaders.length).setValues([rowValues])
+    sheet.getRange(targetRow, 1, 1, fields.length).setValues([rowValues])
   } else {
     sheet.appendRow(rowValues)
   }
 }
 
-function delete_(sheetName, headers, id) {
-  var sheet = getOrCreateSheet_(sheetName, headers)
+function delete_(sheetName, fields, labels, id) {
+  var sheet = getOrCreateSheet_(sheetName, labels)
   var data = sheet.getDataRange().getValues()
-  var actualHeaders = data[0]
-  var idCol = actualHeaders.indexOf('id')
+  var idCol = fields.indexOf('id')
   for (var i = data.length - 1; i >= 1; i--) {
     if (data[i][idCol] === id) {
       sheet.deleteRow(i + 1)
@@ -93,20 +101,21 @@ function delete_(sheetName, headers, id) {
 
 function doPost(e) {
   var body = JSON.parse(e.postData.contents)
+  if (body.pin !== SHARED_SECRET) return jsonOut_({ error: 'unauthorized' })
+
   var action = body.action
 
   if (action === 'upsert_entry') {
-    upsert_(ENTRIES_SHEET, ENTRY_HEADERS, body.entry)
+    upsert_(ENTRIES_SHEET, ENTRY_FIELDS, ENTRY_LABELS, body.entry)
     return jsonOut_({ ok: true })
   }
 
   if (action === 'delete_entry') {
-    delete_(ENTRIES_SHEET, ENTRY_HEADERS, body.id)
+    delete_(ENTRIES_SHEET, ENTRY_FIELDS, ENTRY_LABELS, body.id)
     // 連動刪除該條目底下的心得記錄
-    var sheet = getOrCreateSheet_(LOGS_SHEET, LOG_HEADERS)
+    var sheet = getOrCreateSheet_(LOGS_SHEET, LOG_LABELS)
     var data = sheet.getDataRange().getValues()
-    var headers = data[0]
-    var entryCol = headers.indexOf('entry_id')
+    var entryCol = LOG_FIELDS.indexOf('entry_id')
     for (var i = data.length - 1; i >= 1; i--) {
       if (data[i][entryCol] === body.id) sheet.deleteRow(i + 1)
     }
@@ -114,12 +123,12 @@ function doPost(e) {
   }
 
   if (action === 'upsert_log') {
-    upsert_(LOGS_SHEET, LOG_HEADERS, body.log)
+    upsert_(LOGS_SHEET, LOG_FIELDS, LOG_LABELS, body.log)
     return jsonOut_({ ok: true })
   }
 
   if (action === 'delete_log') {
-    delete_(LOGS_SHEET, LOG_HEADERS, body.id)
+    delete_(LOGS_SHEET, LOG_FIELDS, LOG_LABELS, body.id)
     return jsonOut_({ ok: true })
   }
 

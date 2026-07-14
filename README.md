@@ -32,6 +32,8 @@ npm run dev
 
 第一次執行 `doGet`／`doPost` 時，Apps Script 會自動建立「條目」和「心得記錄」兩個工作表並補上標題列，不用手動建表。
 
+`Code.gs` 裡的 `SHARED_SECRET` 是存取密碼，部署後第一次打開網頁會跳出密碼輸入框，之後就存在該裝置瀏覽器的本機（localStorage），不會出現在網頁原始碼裡。要換密碼就直接改 `Code.gs` 裡的值，改完記得重新部署（更新既有的部署版本即可，不用新增，網址才不會變）。
+
 ## 部署到 Vercel
 
 跟其他專案流程一樣：GitHub push → Vercel import → Environment Variables 加上 `VITE_SHEETS_WEBAPP_URL` → Deploy。

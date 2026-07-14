@@ -1,9 +1,24 @@
 const WEBAPP_URL = import.meta.env.VITE_SHEETS_WEBAPP_URL || ''
+const PIN_KEY = 'tcm-essence:pin'
 
 const LOCAL_KEYS = {
   entries: 'tcm-essence:entries',
   logs: 'tcm-essence:logs',
   queue: 'tcm-essence:queue',
+}
+
+// 密碼只存在這支裝置的瀏覽器本機，不會出現在網頁原始碼裡
+function getPin() {
+  let pin = localStorage.getItem(PIN_KEY)
+  if (!pin) {
+    pin = window.prompt('請輸入使用密碼') || ''
+    if (pin) localStorage.setItem(PIN_KEY, pin)
+  }
+  return pin
+}
+
+function clearPin() {
+  localStorage.removeItem(PIN_KEY)
 }
 
 function readLocal(key, fallback) {
@@ -31,10 +46,15 @@ async function postAction(action, payload) {
   if (!isConfigured()) throw new Error('not-configured')
   const res = await fetch(WEBAPP_URL, {
     method: 'POST',
-    body: JSON.stringify({ action, ...payload }),
+    body: JSON.stringify({ action, ...payload, pin: getPin() }),
   })
   if (!res.ok) throw new Error('post-failed')
-  return res.json()
+  const data = await res.json()
+  if (data.error === 'unauthorized') {
+    clearPin()
+    throw new Error('密碼錯誤')
+  }
+  return data
 }
 
 function queuePush(item) {
@@ -46,9 +66,13 @@ function queuePush(item) {
 export async function fetchAll() {
   if (isConfigured()) {
     try {
-      const res = await fetch(`${WEBAPP_URL}?action=list`)
+      const res = await fetch(`${WEBAPP_URL}?action=list&pin=${encodeURIComponent(getPin())}`)
       if (!res.ok) throw new Error('list-failed')
       const data = await res.json()
+      if (data.error === 'unauthorized') {
+        clearPin()
+        throw new Error('密碼錯誤')
+      }
       writeLocal(LOCAL_KEYS.entries, data.entries || [])
       writeLocal(LOCAL_KEYS.logs, data.logs || [])
       return { entries: data.entries || [], logs: data.logs || [], online: true }
